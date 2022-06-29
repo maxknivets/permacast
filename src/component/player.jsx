@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { AudioPlayerProvider, useAudioPlayer, useAudioPosition } from "react-use-audio-player"
 import { TrackView } from "./trackView";
 import { GlobalPlayButton } from './icons';
 import { ViewListIcon, ShareIcon, ArrowsExpandIcon, PauseIcon, VolumeUpIcon, FastForwardIcon, RewindIcon } from "@heroicons/react/outline";
@@ -152,8 +152,9 @@ const AudioPlayer = ({ url, appState }) => {
 };
 
 const AudioControls = ({
-  isPlaying,
-  onPlayPauseClick,
+  playing,
+  play,
+  pause,
   onPrevClick,
   onNextClick,
   appState,
@@ -161,16 +162,16 @@ const AudioControls = ({
   <div className="w-full flex justify-between">
     <button
       type="button"
-      className="prev"
       aria-label="Previous"
       onClick={onPrevClick}
     >
       <RewindIcon height="28" width="28" />
     </button>
-    {isPlaying ? (
+    {playing ? (
       <button
+        
         type="button"
-        onClick={() => onPlayPauseClick(false)}
+        onClick={play}
         aria-label="Pause"
       >
         <PauseIcon height="28" width="28" />
@@ -178,7 +179,7 @@ const AudioControls = ({
     ) : (
       <button
         type="button"
-        onClick={() => onPlayPauseClick(true)}
+        onClick={play}
         aria-label="Play"
       >
         <GlobalPlayButton appState={appState} size="14" />
@@ -195,9 +196,89 @@ const AudioControls = ({
 );
 
 
-export default function Player({episode, appState}) {
+const AudioPlayer2 = ({ url, appState }) => {
+  const { ready, loading, playing, pause, togglePlayPause, player } = useAudioPlayer({
+    src: url,
+    // html5: true,
+    format: 'mp3',
+    // autoplay: true,
+    onend: () => console.log("sound has ended!")
+  })
 
-  // const mediaType = episode.mediaType?.split('/')?.[0];
+  const { position, duration, seek, percentComplete } = useAudioPosition({
+    highRefreshRate: true
+  })
+  const [barWidth, setBarWidth] = useState("0%")
+
+  const seekBarElem = useRef(null)
+
+  useEffect(() => {
+    setBarWidth(`${percentComplete}%`)
+  }, [percentComplete])
+
+  // const startTimer = () => {
+	//   // Clear any timers already running
+	//   clearInterval(intervalRef.current);
+
+	//   intervalRef.current = setInterval(() => {
+	//     if (audioRef.current.ended) {
+	//       toNextTrack();
+	//     } else {
+	//       setTrackProgress(audioRef.current.currentTime);
+	//     }
+	//   }, [1000]);
+	// }
+
+  const onScrubEnd = () => {
+    // If not already playing, start
+    if (!playing) {
+      seek(pos)
+      togglePlayPause()
+    }
+    // startTimer();
+  }
+
+  const convertSecondsToTime = (seconds) => {
+    
+  }
+
+  const [pos, setPos] = useState(0)
+
+  useEffect(() => {
+    setPos(position)
+  }, [position])
+
+  return (
+    <div className="w-full">
+      <div className="w-28 mx-auto">      
+        <AudioControls playing={playing} play={togglePlayPause} pause={pause} onPrevClick={pause} onNextClick={pause} appState={appState} />
+      </div>
+      <div
+        className="flex"
+        ref={seekBarElem}
+      >
+        <div className="">
+          {Math.floor(position)}
+        </div>
+        <input
+          type='range'
+          min='1'
+          max={duration || '1'}
+          step='1'
+          value={""+pos}
+          className="w-full mx-2"
+          style={{accentColor: appState.themeColor}}
+          onChange={(e) => {pause(); setPos(e.target.value)}}
+          onKeyUp={onScrubEnd}
+          onMouseUp={onScrubEnd}
+        />
+      </div>
+
+    </div>
+  )
+}
+
+export default function Player({episode, appState}) {
 
   return (
     <div className="w-screen rounded-t-[24px] h-[84px] pt-4 px-8 bg-zinc-900 text-zinc-200">
@@ -207,23 +288,14 @@ export default function Player({episode, appState}) {
         </div>
         <div className="col-span-6">
           <div className="flex">
-            <AudioPlayer
-              url={episode.contentUrl}
-              appState={appState}
-            />
+            <AudioPlayerProvider>
+              <AudioPlayer2 url={episode.contentUrl} appState={appState} />
+            </AudioPlayerProvider>
           </div>
         </div>
         <div className="col-span-3 text-zinc-400 ">
           <div className="flex items-center justify-center">
             <VolumeUpIcon width="28" height="28" />
-            <input
-              type="range"
-              step="1"
-              min="0"
-              max="100"
-              value="100"
-              style={{accentColor: appState.themeColor}}
-            />
             <ShareIcon width="28" height="28" />
             <ViewListIcon onClick={() => appState.queue.toggleVisibility()} width="28" height="28" />
             <ArrowsExpandIcon width="28" height="28" />
